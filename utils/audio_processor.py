@@ -1,15 +1,27 @@
 import yt_dlp
 from pydub import AudioSegment
+import subprocess
 import os
 
 DOWNLOAD_DIR = 'downloades'
 os.makedirs(DOWNLOAD_DIR,exist_ok = True)
+def ensure_deno():
+    deno_path = os.path.expanduser("~/.deno/bin/deno")
+    if not os.path.exists(deno_path):
+        subprocess.run(
+            "curl -fsSL https://deno.land/install.sh | sh",
+            shell=True,
+            check=True
+        )
+    os.environ["PATH"] = os.path.expanduser("~/.deno/bin") + os.pathsep + os.environ.get("PATH", "")
+
+ensure_deno()
 
 def download_youtube_audio(url :str) ->str:
     output_path = os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s")
     ydl_opts = {
         "format": "bestaudio/best",
-         "js_runtimes": {"node": {}},
+        
 
         "outtmpl": output_path,
         "postprocessors": [
