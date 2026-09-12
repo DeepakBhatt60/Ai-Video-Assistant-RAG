@@ -95,3 +95,5 @@ audioop-lts
 torchvision
 langchain-chroma
 >>>>>>> 03e421e (Update requirements)
+ffmpeg
+unzip
