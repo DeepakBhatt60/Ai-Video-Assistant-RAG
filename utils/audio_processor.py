@@ -4,7 +4,9 @@ import subprocess
 import os
 
 DOWNLOAD_DIR = 'downloades'
-os.makedirs(DOWNLOAD_DIR,exist_ok = True)
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+
 def ensure_deno():
     deno_path = os.path.expanduser("~/.deno/bin/deno")
     if not os.path.exists(deno_path):
@@ -15,15 +17,15 @@ def ensure_deno():
         )
     os.environ["PATH"] = os.path.expanduser("~/.deno/bin") + os.pathsep + os.environ.get("PATH", "")
 
+
 ensure_deno()
 
-def download_youtube_audio(url :str) ->str:
+
+def download_youtube_audio(url: str) -> str:
     output_path = os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s")
     ydl_opts = {
         "format": "bestaudio/best",
         "cookiefile": "cookies.txt",
-        
-
         "outtmpl": output_path,
         "postprocessors": [
             {
@@ -36,35 +38,44 @@ def download_youtube_audio(url :str) ->str:
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info).replace(".webm", ".wav").replace(".m4a", ".wav")
+        # FFmpegExtractAudio postprocessor always converts to .wav,
+        # regardless of the original download extension (.webm, .m4a, .opus, etc).
+        # Using splitext instead of guessing specific extensions avoids
+        # filename mismatches that led to corrupted/empty audio being processed.
+        base, _ext = os.path.splitext(ydl.prepare_filename(info))
+        filename = base + ".wav"
     return filename
-
 
 
 def convert_to_wav(input_path: str) -> str:
     """Convert any audio/video file to WAV format using pydub."""
     output_path = os.path.splitext(input_path)[0] + "_converted.wav"
     audio = AudioSegment.from_file(input_path)
-    audio = audio.set_channels(1).set_frame_rate(16000) #16khz
+    audio = audio.set_channels(1).set_frame_rate(16000)  # 16kHz
     audio.export(output_path, format="wav")
     return output_path
 
 
-
-def chunk_audio(wav_path : str , chunk_minutes : int = 10) -> list:
+def chunk_audio(wav_path: str, chunk_minutes: int = 10) -> list:
     audio = AudioSegment.from_wav(wav_path)
-    chunk_ms = chunk_minutes * 60 * 1000 
+    chunk_ms = chunk_minutes * 60 * 1000
 
     chunks = []
 
-    for i, start in enumerate(range(0,len(audio),chunk_ms)):
+    for i, start in enumerate(range(0, len(audio), chunk_ms)):
         chunk = audio[start : start + chunk_ms]
-        chunk_path = f"{wav_path}_chunk_{i}.wav"
-        chunk.export(chunk_path , format = "wav")
 
+        # Skip near-empty chunks (less than 0.5 sec) — these have caused
+        # Whisper to crash with "cannot reshape tensor of 0 elements"
+        if len(chunk) < 500:
+            continue
+
+        chunk_path = f"{wav_path}_chunk_{i}.wav"
+        chunk.export(chunk_path, format="wav")
         chunks.append(chunk_path)
-    
+
     return chunks
+
 
 def process_input(source: str) -> list:
     if source.startswith("http://") or source.startswith("https://"):
