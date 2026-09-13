@@ -2,6 +2,7 @@ import yt_dlp
 from pydub import AudioSegment
 import subprocess
 import os
+import uuid
 
 DOWNLOAD_DIR = 'downloades'
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
@@ -22,7 +23,10 @@ ensure_deno()
 
 
 def download_youtube_audio(url: str) -> str:
-    output_path = os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s")
+    # Unique prefix per call so two runs (e.g. two open browser tabs)
+    # never write/read/delete the same filename at the same time.
+    unique_id = uuid.uuid4().hex[:8]
+    output_path = os.path.join(DOWNLOAD_DIR, f"{unique_id}_%(title)s.%(ext)s")
     ydl_opts = {
         "format": "bestaudio/best",
         "cookiefile": "cookies.txt",
@@ -89,3 +93,4 @@ def process_input(source: str) -> list:
     chunks = chunk_audio(wav_path)
     print(f"Audio ready — {len(chunks)} chunk(s) created.")
     return chunks
+
